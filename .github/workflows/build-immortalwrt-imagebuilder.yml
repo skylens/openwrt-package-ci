@@ -35,21 +35,21 @@ jobs:
     - name: Prepare Build Environment
       run: |
         # 下载 VMware OVF 工具
-        wget https://github.com/rgl/ovftool-binaries/raw/main/archive/VMware-ovftool-4.4.3-18663434-lin.x86_64.zip
+        wget -q https://github.com/rgl/ovftool-binaries/raw/main/archive/VMware-ovftool-4.4.3-18663434-lin.x86_64.zip
         unzip VMware-ovftool-4.4.3-18663434-lin.x86_64.zip
         sudo cp -r ovftool /usr/local/
         sudo ln -s /usr/local/ovftool/ovftool /usr/local/bin/
         ovftool --version
 
         # 下载并解压 ImmortalWrt 镜像构建器
-        wget https://downloads.immortalwrt.org/releases/$VERSION/targets/x86/64/immortalwrt-imagebuilder-$VERSION-x86-64.Linux-x86_64.tar.zst
+        wget -q https://downloads.immortalwrt.org/releases/$VERSION/targets/x86/64/immortalwrt-imagebuilder-$VERSION-x86-64.Linux-x86_64.tar.zst
         tar -I zstd -xf immortalwrt-imagebuilder-*-x86-64.Linux-x86_64.tar.zst
         cd immortalwrt-imagebuilder*x86-64.Linux-x86_64
         mkdir output
 
     - name: Custom Configuration
       run: |
-        pwd
+        cd immortalwrt-imagebuilder*x86-64.Linux-x86_64
         # 更新配置文件
         sed -i 's/CONFIG_GRUB_TIMEOUT="3"/CONFIG_GRUB_TIMEOUT="0"/' .config
         sed -i 's/CONFIG_GRUB_EFI_IMAGES=y/CONFIG_GRUB_EFI_IMAGES=n/' .config
@@ -72,6 +72,7 @@ jobs:
 
     - name: Build Image
       run: |
+        cd immortalwrt-imagebuilder*x86-64.Linux-x86_64
         # 编译镜像
         make image PACKAGES="-bnx2-firmware -dnsmasq dnsmasq-full luci luci-i18n-base-zh-cn kmod-e100 kmod-e1000 kmod-vmxnet3 kmod-wireguard open-vm-tools lrzsz" FILES="files"
 
@@ -81,6 +82,7 @@ jobs:
 
     - name: Generate OVA Files
       run: |
+        cd immortalwrt-imagebuilder*x86-64.Linux-x86_64
         # 复制生成的镜像
         cp bin/targets/x86/64/immortalwrt-$VERSION-x86-64-generic-*.img output/
         ls -alh output/
