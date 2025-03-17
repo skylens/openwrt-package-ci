@@ -27,9 +27,6 @@ jobs:
       env:
         DEBIAN_FRONTEND: noninteractive
       run: |
-        # 禁用 swap 文件
-        sudo swapoff /swapfile
-        sudo rm -rf /swapfile /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc
         sudo -E apt-get -qq update
         sudo -E apt-get -qq install build-essential libncurses5-dev libncursesw5-dev zlib1g-dev gawk git gettext libssl-dev xsltproc rsync wget unzip python3 mkisofs wget qemu-utils
         sudo -E apt-get -qq autoremove --purge
@@ -112,7 +109,6 @@ jobs:
         # 复制 OVA 文件到输出目录
         cp output/tmp/*/*.ova output/
         rm -rf output/tmp
-               - name: Upload a Build Artifact
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4.6.1
