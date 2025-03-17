@@ -81,7 +81,7 @@ jobs:
     - name: Generate OVA Files
       run: |
         cd immortalwrt-imagebuilder*x86-64.Linux-x86_64
-        gunzip immortalwrt-$VERSION-x86-64-generic-ext4-combined.img.gz
+        gunzip bin/targets/x86/64/immortalwrt-$VERSION-x86-64-generic-ext4-combined.img.gz
         ls -alh bin/targets/x86/64/
         # 复制生成的镜像
         cp bin/targets/x86/64/*combined.img output/
