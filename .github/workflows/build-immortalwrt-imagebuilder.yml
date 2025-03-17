@@ -1,9 +1,9 @@
 name: immortalwrt-imagebuilder
 
-on: 
+on:
   push:
     tags:
-      - '*'
+    - '*'
 
 env:
   TZ: Asia/Shanghai
@@ -76,45 +76,46 @@ jobs:
       run: |
         # 编译镜像
         make image PACKAGES="-bnx2-firmware -dnsmasq dnsmasq-full luci luci-i18n-base-zh-cn kmod-e100 kmod-e1000 kmod-vmxnet3 kmod-wireguard open-vm-tools lrzsz" FILES="files"
-        
+
         # 解压生成的镜像
         gunzip -d bin/targets/x86/64/immortalwrt-$VERSION-x86-64-generic-ext4-combined.img.gz
         gunzip -d bin/targets/x86/64/immortalwrt-$VERSION-x86-64-generic-squashfs-combined.img.gz
 
     - name: Generate OVA Files
       run: |
-         # 复制生成的镜像
-         cp bin/targets/x86/64/immortalwrt-$VERSION-x86-64-generic-*.img output/
-         ls -alh output/
-         
-         # 转换为 VMDK 格式
-         qemu-img convert -f raw -O vmdk output/immortalwrt-$VERSION-x86-64-generic-ext4-combined.img output/immortalwrt-$VERSION-x86-64-generic-ext4-combined.vmdk
-         qemu-img info output/immortalwrt-$VERSION-x86-64-generic-ext4-combined.vmdk
-         qemu-img convert -f vmdk -O vmdk -o adapter_type=lsilogic,subformat=streamOptimized,compat6 output/immortalwrt-$VERSION-x86-64-generic-ext4-combined.vmdk output/tmp/ext4/immortalwrt-disk1.vmdk
-         qemu-img info output/tmp/ext4/immortalwrt-disk1.vmdk
-         qemu-img convert -f raw -O vmdk output/immortalwrt-$VERSION-x86-64-generic-ext4-combined.img output/immortalwrt-$VERSION-x86-64-generic-squashfs-combined.vmdk
-         qemu-img info output/immortalwrt-$VERSION-x86-64-generic-ext4-squashfs.vmdk
-         qemu-img convert -f vmdk -O vmdk -o adapter_type=lsilogic,subformat=streamOptimized,compat6 output/immortalwrt-$VERSION-x86-64-generic-squashfs-combined.vmdk output/tmp/squashfs/immortalwrt-disk1.vmdk
-         qemu-img info output/tmp/squashfs/immortalwrt-disk1.vmdk
+        # 复制生成的镜像
+        cp bin/targets/x86/64/immortalwrt-$VERSION-x86-64-generic-*.img output/
+        ls -alh output/
 
-         # 输出文件大小
-         du --bytes output/*.vmdk
-         du --bytes output/tmp/*/*.vmdk
-         
-         # 转换为 OVA 格式
-         cd output/tmp/ext4
-         ovftool immortalwrt.ovf immortalwrt-$VERSION-x86-64-ext4-combined.ova
-         cd ../../../
-         cd output/tmp/squashfs
-         ovftool immortalwrt.ovf immortalwrt-$VERSION-x86-64-squashfs-combined.ova
-         cd ../../../
-         
-         # 复制 OVA 文件到输出目录
-         cp output/tmp/*/*.ova output/
-         rm -rf output/tmp
+        # 转换为 VMDK 格式
+        qemu-img convert -f raw -O vmdk output/immortalwrt-$VERSION-x86-64-generic-ext4-combined.img output/immortalwrt-$VERSION-x86-64-generic-ext4-combined.vmdk
+        qemu-img info output/immortalwrt-$VERSION-x86-64-generic-ext4-combined.vmdk
+        qemu-img convert -f vmdk -O vmdk -o adapter_type=lsilogic,subformat=streamOptimized,compat6 output/immortalwrt-$VERSION-x86-64-generic-ext4-combined.vmdk output/tmp/ext4/immortalwrt-disk1.vmdk
+        qemu-img info output/tmp/ext4/immortalwrt-disk1.vmdk
+        qemu-img convert -f raw -O vmdk output/immortalwrt-$VERSION-x86-64-generic-ext4-combined.img output/immortalwrt-$VERSION-x86-64-generic-squashfs-combined.vmdk
+        qemu-img info output/immortalwrt-$VERSION-x86-64-generic-ext4-squashfs.vmdk
+        qemu-img convert -f vmdk -O vmdk -o adapter_type=lsilogic,subformat=streamOptimized,compat6 output/immortalwrt-$VERSION-x86-64-generic-squashfs-combined.vmdk output/tmp/squashfs/immortalwrt-disk1.vmdk
+        qemu-img info output/tmp/squashfs/immortalwrt-disk1.vmdk
 
-    - name: Upload artifact
-      uses: actions/upload-artifact@v2
+        # 输出文件大小
+        du --bytes output/*.vmdk
+        du --bytes output/tmp/*/*.vmdk
+
+        # 转换为 OVA 格式
+        cd output/tmp/ext4
+        ovftool immortalwrt.ovf immortalwrt-$VERSION-x86-64-ext4-combined.ova
+        cd ../../../
+        cd output/tmp/squashfs
+        ovftool immortalwrt.ovf immortalwrt-$VERSION-x86-64-squashfs-combined.ova
+        cd ../../../
+
+        # 复制 OVA 文件到输出目录
+        cp output/tmp/*/*.ova output/
+        rm -rf output/tmp
+               - name: Upload a Build Artifact
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4.6.1
       with:
         name: immortalwrt-firmware
         path: ./immortalwrt-imagebuilder-*/output
