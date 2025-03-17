@@ -44,7 +44,7 @@ jobs:
         # 下载并解压 ImmortalWrt 镜像构建器
         wget https://downloads.immortalwrt.org/releases/$VERSION/targets/x86/64/immortalwrt-imagebuilder-$VERSION-x86-64.Linux-x86_64.tar.zst
         tar -I zstd -xf immortalwrt-imagebuilder-*-x86-64.Linux-x86_64.tar.zst
-        cd immortalwrt-imagebuilder-*
+        cd immortalwrt-imagebuilder*x86-64.Linux-x86_64
         mkdir output
 
     - name: Custom Configuration
