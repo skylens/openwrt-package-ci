@@ -23,14 +23,6 @@ jobs:
         VERSION=$(git describe --tags --abbrev=0)
         echo "VERSION=${VERSION}" >> $GITHUB_ENV
 
-    - name: Set up caching
-      uses: actions/cache@v2
-      with:
-        path: ~/.cache
-        key: ${{ runner.os }}-immortalwrt-${{ env.VERSION }}
-        restore-keys: |
-          ${{ runner.os }}-immortalwrt-
-
     - name: Initialization
       env:
         DEBIAN_FRONTEND: noninteractive
