@@ -80,8 +80,9 @@ jobs:
     - name: Generate OVA Files
       run: |
         cd immortalwrt-imagebuilder*x86-64.Linux-x86_64
+        ls -alh bin/targets/x86/64/
         # 复制生成的镜像
-        cp bin/targets/x86/64/immortalwrt-$VERSION-x86-64-generic-*.img output/
+        cp bin/targets/x86/64/*.img output/
         ls -alh output/
 
         # 转换为 VMDK 格式
