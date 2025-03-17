@@ -2,11 +2,10 @@ name: immortalwrt-imagebuilder
 
 on: 
   push:
-    branches: 
-      - master
+    tags:
+      - '*'
 
 env:
-  VERSION: 24.10.0
   TZ: Asia/Shanghai
 
 jobs:
@@ -15,30 +14,53 @@ jobs:
     if: github.event.repository.owner.id == github.event.sender.id
     steps:
     - name: Checkout
-      uses: actions/checkout@master
+      uses: actions/checkout@v2
+
+    - name: Get version from Git tag
+      id: get_version
+      run: |
+        # 获取 Git 标签并将其作为版本号
+        VERSION=$(git describe --tags --abbrev=0)
+        echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+    - name: Set up caching
+      uses: actions/cache@v2
+      with:
+        path: ~/.cache
+        key: ${{ runner.os }}-immortalwrt-${{ env.VERSION }}
+        restore-keys: |
+          ${{ runner.os }}-immortalwrt-
+
     - name: Initialization
       env:
         DEBIAN_FRONTEND: noninteractive
       run: |
+        # 禁用 swap 文件
         sudo swapoff /swapfile
         sudo rm -rf /swapfile /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc
         sudo -E apt-get -qq update
         sudo -E apt-get -qq install build-essential libncurses5-dev libncursesw5-dev zlib1g-dev gawk git gettext libssl-dev xsltproc rsync wget unzip python3 mkisofs wget qemu-utils
         sudo -E apt-get -qq autoremove --purge
         sudo -E apt-get -qq clean
-    - name: Prepare
+
+    - name: Prepare Build Environment
       run: |
+        # 下载 VMware OVF 工具
         wget https://github.com/rgl/ovftool-binaries/raw/main/archive/VMware-ovftool-4.4.3-18663434-lin.x86_64.zip
         unzip VMware-ovftool-4.4.3-18663434-lin.x86_64.zip
-        cp -r ovftool /usr/local/
-        ln -s /usr/local/ovftool/ovftool /usr/local/bin/
+        sudo cp -r ovftool /usr/local/
+        sudo ln -s /usr/local/ovftool/ovftool /usr/local/bin/
         ovftool --version
+
+        # 下载并解压 ImmortalWrt 镜像构建器
         wget https://downloads.immortalwrt.org/releases/$VERSION/targets/x86/64/immortalwrt-imagebuilder-$VERSION-x86-64.Linux-x86_64.tar.zst
         tar -I zstd -xf immortalwrt-imagebuilder-*-x86-64.Linux-x86_64.tar.xz
         cd immortalwrt-imagebuilder-*
         mkdir output
-    - name: Custom
+
+    - name: Custom Configuration
       run: |
+        # 更新配置文件
         sed -i 's/CONFIG_GRUB_TIMEOUT="3"/CONFIG_GRUB_TIMEOUT="0"/' .config
         sed -i 's/CONFIG_GRUB_EFI_IMAGES=y/CONFIG_GRUB_EFI_IMAGES=n/' .config
         sed -i 's/CONFIG_ISO_IMAGES=y/CONFIG_ISO_IMAGES=n/' .config
@@ -48,38 +70,59 @@ jobs:
         sed -i 's/CONFIG_VHDX_IMAGES=y/CONFIG_VHDX_IMAGES=n/' .config
         sed -i -e 's/CONFIG_TARGET_KERNEL_PARTSIZE=.*/CONFIG_TARGET_KERNEL_PARTSIZE=256/' .config
         sed -i -e 's/CONFIG_TARGET_ROOTFS_PARTSIZE=.*/CONFIG_TARGET_ROOTFS_PARTSIZE=768/' .config
+
+        # 自定义文件夹
         mkdir -pv files/etc/uci-defaults
         cp ../99-custom files/etc/uci-defaults/
         ls -al files/etc/uci-defaults/99-custom
+
         mkdir -pv output/tmp/{ext4,squashfs}
         cp ../immortalwrt.ovf output/tmp/ext4/
         cp ../immortalwrt.ovf output/tmp/squashfs/
-    - name: Make
+
+    - name: Build Image
       run: |
+        # 编译镜像
         make image PACKAGES="-bnx2-firmware -dnsmasq dnsmasq-full luci luci-i18n-base-zh-cn kmod-e100 kmod-e1000 kmod-vmxnet3 kmod-wireguard open-vm-tools lrzsz" FILES="files"
+        
+        # 解压生成的镜像
         gunzip -d bin/targets/x86/64/immortalwrt-$VERSION-x86-64-generic-ext4-combined.img.gz
         gunzip -d bin/targets/x86/64/immortalwrt-$VERSION-x86-64-generic-squashfs-combined.img.gz
-    - name: Generate OVA
+
+    - name: Generate OVA Files
       run: |
+         # 复制生成的镜像
          cp bin/targets/x86/64/immortalwrt-$VERSION-x86-64-generic-*.img output/
          ls -alh output/
+         
+         # 转换为 VMDK 格式
          qemu-img convert -f raw -O vmdk output/immortalwrt-$VERSION-x86-64-generic-ext4-combined.img output/immortalwrt-$VERSION-x86-64-generic-ext4-combined.vmdk
          qemu-img info output/immortalwrt-$VERSION-x86-64-generic-ext4-combined.vmdk
          qemu-img convert -f vmdk -O vmdk -o adapter_type=lsilogic,subformat=streamOptimized,compat6 output/immortalwrt-$VERSION-x86-64-generic-ext4-combined.vmdk output/tmp/ext4/immortalwrt-disk1.vmdk
+         qemu-img info output/tmp/ext4/immortalwrt-disk1.vmdk
          qemu-img convert -f raw -O vmdk output/immortalwrt-$VERSION-x86-64-generic-ext4-combined.img output/immortalwrt-$VERSION-x86-64-generic-squashfs-combined.vmdk
          qemu-img info output/immortalwrt-$VERSION-x86-64-generic-ext4-squashfs.vmdk
          qemu-img convert -f vmdk -O vmdk -o adapter_type=lsilogic,subformat=streamOptimized,compat6 output/immortalwrt-$VERSION-x86-64-generic-squashfs-combined.vmdk output/tmp/squashfs/immortalwrt-disk1.vmdk
+         qemu-img info output/tmp/squashfs/immortalwrt-disk1.vmdk
+
+         # 输出文件大小
          du --bytes output/*.vmdk
          du --bytes output/tmp/*/*.vmdk
+         
+         # 转换为 OVA 格式
          cd output/tmp/ext4
          ovftool immortalwrt.ovf immortalwrt-$VERSION-x86-64-ext4-combined.ova
          cd ../../../
-         output/tmp/squashfs
+         cd output/tmp/squashfs
          ovftool immortalwrt.ovf immortalwrt-$VERSION-x86-64-squashfs-combined.ova
          cd ../../../
+         
+         # 复制 OVA 文件到输出目录
          cp output/tmp/*/*.ova output/
+         rm -rf output/tmp
+
     - name: Upload artifact
-      uses: actions/upload-artifact@master
+      uses: actions/upload-artifact@v2
       with:
         name: immortalwrt-firmware
         path: ./immortalwrt-imagebuilder-*/output
